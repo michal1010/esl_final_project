@@ -1,0 +1,19 @@
+{
+  "data": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/data/propublica_data_for_fairml.csv",
+  "artifacts": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/centralized_model/centralized_out",
+  "label_col": "Two_yr_Recidivism",
+  "sensitive_attribute": "African_American",
+  "overall": {
+    "threshold": 0.5,
+    "accuracy": 0.6777327935222672,
+    "f1": 0.6074950690335306,
+    "roc_auc": 0.7319116084034413
+  },
+  "fairness": {
+    "demographic_parity_diff_A1_minus_A0": 0.29321556700651863,
+    "equal_opportunity_diff_TPR_A1_minus_A0": 0.28394329047148037,
+    "tpr_diff_A1_minus_A0": 0.28394329047148037,
+    "fpr_diff_A1_minus_A0": 0.22170517757809155,
+    "equalized_odds_diff_max_abs_tpr_fpr": 0.28394329047148037
+  }
+}

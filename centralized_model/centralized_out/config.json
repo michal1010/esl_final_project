@@ -1,0 +1,99 @@
+{
+  "data": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/data/propublica_data_for_fairml.csv",
+  "out": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/centralized_model/centralized_out",
+  "feature_cols": [
+    "Number_of_Priors",
+    "score_factor",
+    "Age_Above_FourtyFive",
+    "Age_Below_TwentyFive",
+    "African_American",
+    "Asian",
+    "Hispanic",
+    "Native_American",
+    "Other",
+    "Female",
+    "Misdemeanor"
+  ],
+  "continuous_cols_scaled": [
+    "Number_of_Priors"
+  ],
+  "label_col": "Two_yr_Recidivism",
+  "race_cols": [
+    "African_American",
+    "Asian",
+    "Hispanic",
+    "Native_American",
+    "Other"
+  ],
+  "drop_race_from_features": false,
+  "splits": {
+    "train_size": 3949,
+    "val_size": 988,
+    "test_size": 1235
+  },
+  "config": {
+    "seed": 42,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "lr": 0.01,
+    "weight_decay": 0.0001,
+    "batch_size": 128,
+    "epochs": 100,
+    "patience": 15,
+    "threshold": 0.5
+  },
+  "train_info": {
+    "best_val_loss": 0.607352688908577,
+    "epochs_ran": 22,
+    "history": {
+      "train_loss": [
+        0.6577300756208359,
+        0.6306741333776905,
+        0.6232268406498817,
+        0.6213344162510287,
+        0.620831799122595,
+        0.6206720894382846,
+        0.6201651557799308,
+        0.6200490901547093,
+        0.6200171497560316,
+        0.620034267825465,
+        0.6199145547805294,
+        0.6199669491860175,
+        0.6199400713366847,
+        0.6199695583312742,
+        0.6199086654570795,
+        0.619890687927123,
+        0.619997420618611,
+        0.6200453946667333,
+        0.6200892367670613,
+        0.6204593623838117,
+        0.6199052026194911,
+        0.6203890308257072
+      ],
+      "val_loss": [
+        0.6281917467713356,
+        0.6126990541815758,
+        0.609330877661705,
+        0.6079818978905678,
+        0.6075922101736069,
+        0.6079156771302223,
+        0.607352688908577,
+        0.6074911653995514,
+        0.6077255085110664,
+        0.6079101860523224,
+        0.6082284227013588,
+        0.6075411140918732,
+        0.6081111431121826,
+        0.6083655208349228,
+        0.6083906516432762,
+        0.6078344881534576,
+        0.6075686812400818,
+        0.6084105148911476,
+        0.6089174821972847,
+        0.6082100346684456,
+        0.6083356887102127,
+        0.6080133467912674
+      ]
+    }
+  }
+}
