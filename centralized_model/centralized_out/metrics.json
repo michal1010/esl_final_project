@@ -1,19 +1,70 @@
 {
-  "data": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/data/propublica_data_for_fairml.csv",
-  "artifacts": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/centralized_model/centralized_out",
-  "label_col": "Two_yr_Recidivism",
-  "sensitive_attribute": "African_American",
+  "data": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/data/cox-violent-parsed_filt.csv",
+  "label_col": "is_recid",
+  "sensitive_col": "race",
   "overall": {
-    "threshold": 0.5,
-    "accuracy": 0.6777327935222672,
-    "f1": 0.6074950690335306,
-    "roc_auc": 0.7319116084034413
+    "accuracy": 0.8831877729257642,
+    "f1": 0.8573333333333333,
+    "roc_auc": 0.9362126310612059,
+    "threshold": 0.5
   },
   "fairness": {
-    "demographic_parity_diff_A1_minus_A0": 0.29321556700651863,
-    "equal_opportunity_diff_TPR_A1_minus_A0": 0.28394329047148037,
-    "tpr_diff_A1_minus_A0": 0.28394329047148037,
-    "fpr_diff_A1_minus_A0": 0.22170517757809155,
-    "equalized_odds_diff_max_abs_tpr_fpr": 0.28394329047148037
-  }
+    "demographic_parity_diff_A1_minus_A0": 0.10430310713516877,
+    "equal_opportunity_diff_TPR_A1_minus_A0": -0.008149954461321496,
+    "fpr_diff_A1_minus_A0": 0.020092165898617512,
+    "equalized_odds_diff_max_abs_tpr_fpr": 0.020092165898617512,
+    "sensitive_definition": "A=1 if race == 'African-American'"
+  },
+  "n_train": 14652,
+  "n_test": 3664,
+  "features_used": {
+    "numeric_cols": [
+      "age",
+      "juv_fel_count",
+      "decile_score",
+      "juv_misd_count",
+      "juv_other_count",
+      "priors_count",
+      "days_b_screening_arrest",
+      "c_days_from_compas",
+      "r_days_from_arrest",
+      "violent_recid",
+      "is_violent_recid",
+      "v_decile_score"
+    ],
+    "categorical_cols": [
+      "sex",
+      "age_cat",
+      "race",
+      "c_charge_degree",
+      "r_charge_degree",
+      "vr_charge_degree",
+      "type_of_assessment",
+      "v_type_of_assessment"
+    ]
+  },
+  "dropped_cols": [
+    "c_charge_desc",
+    "c_jail_in",
+    "c_jail_out",
+    "decile_score.1",
+    "dob",
+    "event",
+    "first",
+    "id",
+    "is_recid",
+    "last",
+    "name",
+    "priors_count.1",
+    "r_charge_desc",
+    "r_jail_in",
+    "r_offense_date",
+    "score_text",
+    "screening_date",
+    "v_score_text",
+    "vr_charge_desc",
+    "vr_offense_date"
+  ],
+  "seed": 42,
+  "test_size": 0.2
 }
