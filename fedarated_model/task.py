@@ -41,7 +41,7 @@ for col, categories in CATEGORICAL_FEATURES.items():
 def create_logreg_model():
     return LogisticRegression(
         solver="saga",
-        max_iter=1000,        
+        max_iter=1000,
         warm_start=True,
         fit_intercept=True,
     )
@@ -89,4 +89,4 @@ def load_data_by_cid(cid: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.n
     X_train = X
     y_train = y
 
-    return X_train, y_train, X_test, y_test
+    return X_train.values, y_train.values, X_test.values, y_test.values
