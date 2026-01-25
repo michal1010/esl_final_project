@@ -6,6 +6,8 @@ from typing import List
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 from typing import Tuple
+from sklearn.metrics import log_loss
+import csv
 # Dataset paths and initialization
 DATA_PATH = "federated_data_random"
 CLIENTS = [
@@ -90,3 +92,39 @@ def load_data_by_cid(cid: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.n
     y_train = y
 
     return X_train.values, y_train.values, X_test.values, y_test.values
+
+
+def calcualte_metrics(y_test, race_dict, y_proba):
+    race_metrics = []
+
+    for threshold in np.arange(0.1, 1.0, 0.1):
+        y_pred = (y_proba[:, 1] >= threshold).astype(int)
+
+        for race, indices in race_dict.items():
+            tp = fp = fn = tn = 0
+
+            for i in indices:
+                if y_test[i] == 1 and y_pred[i] == 1:
+                    tp += 1
+                elif y_test[i] == 0 and y_pred[i] == 1:
+                    fp += 1
+                elif y_test[i] == 1 and y_pred[i] == 0:
+                    fn += 1
+                else:
+                    tn += 1
+
+            tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+
+            race_metrics.append({
+                'race': race,
+                "num_examples": len(indices),
+                "TPR": tpr,
+                "FPR": fpr,
+                'threshold': threshold
+            })
+
+    with open(f'metrics.csv', 'w') as f:
+        writer = csv.DictWriter(f, fieldnames=race_metrics[-1].keys())
+        writer.writeheader()
+        writer.writerows(race_metrics)
