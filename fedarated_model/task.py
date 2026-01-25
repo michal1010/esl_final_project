@@ -5,7 +5,7 @@ import pandas as pd
 from typing import List
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
-
+from typing import Tuple
 # Dataset paths and initialization
 DATA_PATH = "federated_data_random"
 CLIENTS = [
@@ -16,20 +16,30 @@ CLIENTS = [
     "client_random_5.csv",
 ]
 
+TARGET = "is_recid"
+UNIQUE_LABELS = [0, 1]
 FEATURES = [
     "sex", "age", "race",
     "priors_count", "juv_fel_count",
     "juv_misd_count", "juv_other_count","decile_score"
     ]
+NUMERIC_FEATURES = ["age", "priors_count", "juv_fel_count", "juv_misd_count", "juv_other_count","decile_score"]
+CATEGORICAL_FEATURES = {
+    "sex": ["Male", "Female"],
+    "race": ["Other", "Caucasian", "African-American", "Hispanic", "Asian", "Native American"],
+}
 
-TARGET = "is_recid"
-UNIQUE_LABELS = [0, 1]
-
+# Precompute the expected dummy columns for all clients
+EXPECTED_DUMMY_COLS = []
+for col, categories in CATEGORICAL_FEATURES.items():
+    # drop_first=True, so skip the first category
+    for cat in categories[1:]:
+        EXPECTED_DUMMY_COLS.append(f"{col}_{cat}")
 # Logistic Regression initialization
 def create_logreg_model():
     return LogisticRegression(
         solver="saga",
-        max_iter=100,        
+        max_iter=1000,        
         warm_start=True,
         fit_intercept=True,
     )
@@ -48,32 +58,28 @@ def set_model_params(model, params: List[np.ndarray]):
     return model
 
 # Data Loading
-def load_data_by_cid(cid: int):
+def load_data_by_cid(cid: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     df = pd.read_csv(os.path.join(DATA_PATH, CLIENTS[cid]))
-    df = df[df[TARGET] != -1]
-    X = df[FEATURES].copy()
+    df = df[df[TARGET] != -1]  # remove invalid labels
+
+    # Split features and target
+    X = df[NUMERIC_FEATURES + list(CATEGORICAL_FEATURES.keys())].copy()
     y = df[TARGET].copy()
 
-    # Encode categorical inputs
-    X["sex"] = pd.Categorical(
-        X["sex"],
-        ["Male", "Female"],
-    ).codes
+    # One-hot encode categorical features
+    X = pd.get_dummies(X, columns=CATEGORICAL_FEATURES.keys(), drop_first=True)
 
-    X["race"] = pd.Categorical(
-        X["race"],
-        [
-            "Other",
-            "Caucasian",
-            "African-American",
-            "Hispanic",
-            "Asian",
-            "Native American",
-        ],
-    ).codes
+    # Ensure all dummy columns exist (add missing ones as 0)
+    for col in EXPECTED_DUMMY_COLS:
+        if col not in X.columns:
+            X[col] = 0
 
+    # Reorder columns to a fixed order
+    X = X[NUMERIC_FEATURES + EXPECTED_DUMMY_COLS]
+
+    # Train/test split
     split = int(0.8 * len(X))
-    X_train, X_test = X[:split].values, X[split:].values
-    y_train, y_test = y[:split].values, y[split:].values
+    X_train, X_test = X.iloc[:split].values, X.iloc[split:].values
+    y_train, y_test = y.iloc[:split].values, y.iloc[split:].values
 
     return X_train, y_train, X_test, y_test
