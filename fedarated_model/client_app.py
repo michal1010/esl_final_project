@@ -10,7 +10,6 @@ from task import (
     set_model_params,
     set_initial_params,
     load_data_by_cid,
-    FEATURES,
     UNIQUE_LABELS,
 )
 
@@ -24,7 +23,7 @@ def train(msg: Message, context: Context):
     X_train, y_train, _, _ = load_data_by_cid(cid)
 
     model = create_logreg_model()
-    set_initial_params(model, n_features=len(FEATURES))
+    set_initial_params(model, n_features=X_train.shape[1])
 
     # Receive global params
     params = msg.content["arrays"].to_numpy_ndarrays()
@@ -58,7 +57,7 @@ def evaluate(msg: Message, context: Context):
     _, _, X_test, y_test = load_data_by_cid(cid)
 
     model = create_logreg_model()
-    set_initial_params(model, n_features=len(FEATURES))
+    set_initial_params(model, n_features=X_test.shape[1])
 
     params = msg.content["arrays"].to_numpy_ndarrays()
     set_model_params(model, params)
