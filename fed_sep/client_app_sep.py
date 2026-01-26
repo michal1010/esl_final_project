@@ -1,7 +1,9 @@
+import os
+
 from flwr.app import Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
 from sklearn.metrics import confusion_matrix, log_loss
-from flwr.common import ArrayRecord
+from flwr.common import ArrayRecord, logger
 from task import (
     create_logreg_model,
     get_model_params,
@@ -62,18 +64,26 @@ def train(msg: Message, context: Context):
         reply_to=msg,
     )
 # Helper function to obtain the optimal threshold per race to satisfy separation
-def find_threshold_for_equalized_odds(y_true, y_probs, target_tpr, target_fpr, steps=101):
+def find_threshold_for_equalized_odds(y_true, y_probs, target_tpr, target_fpr, steps=101, relaxed=True):
 
     best_t = 0.5
     best_dist = float("inf")
+    best_tpr = None
+    best_fpr = None
     for t in np.linspace(0, 1, steps):
         y_pred = (y_probs >= t).astype(int)
         tpr, fpr = tpr_fpr(y_true, y_pred)
-        dist = (tpr - target_tpr) ** 2 + (fpr - target_fpr) ** 2
+        if relaxed:
+            dist = (tpr - target_tpr) ** 2
+        else:
+            dist = (tpr - target_tpr) ** 2 + (fpr - target_fpr) ** 2
         if dist < best_dist:
+            logger.log(level=20, msg=f"Found a better threshold: {dist}, with threshold: {t}, and tpr: {tpr} (target = {target_tpr}")
             best_dist = dist
             best_t = t
-    return best_t
+            best_tpr = tpr
+            best_fpr = fpr
+    return best_t, best_tpr, best_fpr
 
 #Evaluation
 @app.evaluate()
@@ -107,14 +117,17 @@ def evaluate(msg: Message, context: Context):
     for race, indices in race_dict.items():
         if len(indices) == 0:
             continue
-        threshold = find_threshold_for_equalized_odds(
+        threshold, best_tpr, best_fpr = find_threshold_for_equalized_odds(
             y_test[indices],
             y_proba[indices],
             target_tpr=overall_tpr,
             target_fpr=overall_fpr,
+            relaxed=False
         )
-        print(f"Race: {race}, Threshold: {threshold:.3f}")
+        print(f"Race: {race}, Threshold: {threshold:.3f}, TPR: {best_tpr:.3f}, FPR: {best_fpr:.3f}")
         y_pred_adj[indices] = (y_proba[indices] >= threshold).astype(int)
+        new_tpr, new_fpr = tpr_fpr(y_test[indices], y_pred_adj[indices])
+        print(f"New TPR: {new_tpr:.3f}, New FPR: {new_fpr:.3f}")
 
     # Step 4: Metrics after adjustment
     loss = log_loss(y_test, y_proba, labels=UNIQUE_LABELS)
