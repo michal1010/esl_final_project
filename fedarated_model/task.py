@@ -25,9 +25,10 @@ UNIQUE_LABELS = [0, 1]
 FEATURES = [
     "sex", "age", "race",
     "priors_count", "juv_fel_count",
-    "juv_misd_count", "juv_other_count","decile_score"
+    "juv_misd_count", "juv_other_count","decile_score",
+    "jail_time"
     ]
-NUMERIC_FEATURES = ["age", "priors_count", "juv_fel_count", "juv_misd_count", "juv_other_count","decile_score"]
+NUMERIC_FEATURES = ["age", "priors_count", "juv_fel_count", "juv_misd_count", "juv_other_count","decile_score", "jail_time"]
 CATEGORICAL_FEATURES = {
     "sex": ["Male", "Female"],
     "race": ["Other", "Caucasian", "African-American", "Hispanic", "Asian", "Native American"],

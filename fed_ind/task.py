@@ -24,15 +24,16 @@ UNIQUE_LABELS = [0, 1]
 FEATURES = [
     "sex", "age", "race",
     "priors_count", "juv_fel_count",
-    "juv_misd_count", "juv_other_count","decile_score"
+    "juv_misd_count", "juv_other_count","decile_score",
+    "jail_time"
     ]
-NUMERIC_FEATURES = ["age", "priors_count", "juv_fel_count", "juv_misd_count", "juv_other_count","decile_score"]
+NUMERIC_FEATURES = ["age", "priors_count", "juv_fel_count", "juv_misd_count", "juv_other_count","decile_score", "jail_time"]
 CATEGORICAL_FEATURES = {
     "sex": ["Male", "Female"],
     "race": ["Other", "Caucasian", "African-American", "Hispanic", "Asian", "Native American"],
 }
 
-# This reweights the loss functions to make the losses scaled uniformly across races for a specific label 
+# This reweights the loss functions to make the losses scaled uniformly across races for a specific label
 def compute_independence_weights(y, sensitive_attr):
     """
     y: labels (n,)
@@ -91,7 +92,7 @@ def set_model_params(model, params: List[np.ndarray]):
 def load_data_by_cid(cid: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,np.ndarray]:
     df = pd.read_csv(os.path.join(DATA_PATH, CLIENTS[cid]))
     df = df[df[TARGET] != -1]  # remove invalid labels
-    
+
     df2 = pd.read_csv(os.path.join(DATA_PATH,TEST))
     df2=df2[df2[TARGET]!= -1]
     # Split features and target
