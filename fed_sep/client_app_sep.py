@@ -1,5 +1,5 @@
 import os
-
+import csv
 from flwr.app import Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
 from sklearn.metrics import confusion_matrix, log_loss
@@ -11,7 +11,6 @@ from task import (
     set_initial_params,
     load_data_by_cid,
     CATEGORICAL_FEATURES,
-    calculate_metrics,
     NUMERIC_FEATURES,
     UNIQUE_LABELS
 )
@@ -88,6 +87,8 @@ def find_threshold_for_equalized_odds(y_true, y_probs, target_tpr, target_fpr, s
 #Evaluation
 @app.evaluate()
 def evaluate(msg: Message, context: Context):
+    save_thresholds = {}
+    race_stat={}
     cid = context.node_config["partition-id"]
     _, _, X_test, y_test,sample_weights = load_data_by_cid(cid)
 
@@ -125,6 +126,7 @@ def evaluate(msg: Message, context: Context):
             relaxed=False
         )
         print(f"Race: {race}, Threshold: {threshold:.3f}, TPR: {best_tpr:.3f}, FPR: {best_fpr:.3f}")
+        race_stat[race]={"TPR":best_tpr, "FPR":best_fpr}
         y_pred_adj[indices] = (y_proba[indices] >= threshold).astype(int)
         new_tpr, new_fpr = tpr_fpr(y_test[indices], y_pred_adj[indices])
         print(f"New TPR: {new_tpr:.3f}, New FPR: {new_fpr:.3f}")
@@ -132,17 +134,21 @@ def evaluate(msg: Message, context: Context):
     # Step 4: Metrics after adjustment
     loss = log_loss(y_test, y_proba, labels=UNIQUE_LABELS)
     acc = np.mean(y_pred_adj == y_test)
-    calculate_metrics(y_test, race_dict, y_pred_adj)
     # Per-race metrics
     race_metrics = {}
     for race, indices in race_dict.items():
         if len(indices) == 0:
             race_metrics[race] = {"TPR": None, "FPR": None}
             continue
-        tpr, fpr = tpr_fpr(y_test[indices], y_pred_adj[indices])
-        race_metrics[race] = {"TPR": tpr, "FPR": fpr}
+        race_metrics[race] = {"Race":race, "TPR": race_stat[race]["TPR"], "FPR": race_stat[race]["FPR"], "no_of_samples":len(indices)}
         print(race_metrics)
-
+    
+    with open("metrics.csv", "w", newline="") as f:
+        fieldnames = ["Race", "TPR", "FPR", "no_of_samples"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(race_metrics.values())
+    
     metrics = {
         "num-examples": len(y_test),
         "accuracy": acc,
