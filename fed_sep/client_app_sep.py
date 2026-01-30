@@ -4,6 +4,7 @@ from flwr.app import Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
 from sklearn.metrics import confusion_matrix, log_loss
 from flwr.common import ArrayRecord, logger
+
 from task import (
     create_logreg_model,
     get_model_params,
@@ -12,7 +13,7 @@ from task import (
     load_data_by_cid,
     CATEGORICAL_FEATURES,
     NUMERIC_FEATURES,
-    UNIQUE_LABELS
+    UNIQUE_LABELS, calculate_roc_metrics, calculate_PPV_NPV
 )
 import numpy as np
 flag=0
@@ -109,9 +110,13 @@ def evaluate(msg: Message, context: Context):
         race_col = race_start_idx + i
         race_dict[race] = np.where(X_test[:, race_col] == 1)[0]
 
+    calculate_roc_metrics(y_test, race_dict, y_proba)
+
     # Step 2: Compute overall TPR and FPR
     overall_pred = (y_proba >= 0.5).astype(int)
     overall_tpr, overall_fpr = tpr_fpr(y_test, overall_pred)
+
+    calculate_PPV_NPV(y_test, race_dict, overall_pred)
 
     # Step 3: Adjust thresholds per race for true separation (equal TPR & FPR)
     y_pred_adj = np.zeros_like(y_test)
@@ -126,7 +131,7 @@ def evaluate(msg: Message, context: Context):
             relaxed=False
         )
         print(f"Race: {race}, Threshold: {threshold:.3f}, TPR: {best_tpr:.3f}, FPR: {best_fpr:.3f}")
-        race_stat[race]={"TPR":best_tpr, "FPR":best_fpr}
+        race_stat[race]={"TPR":best_tpr, "FPR":best_fpr, "Threshold":threshold}
         y_pred_adj[indices] = (y_proba[indices] >= threshold).astype(int)
         new_tpr, new_fpr = tpr_fpr(y_test[indices], y_pred_adj[indices])
         print(f"New TPR: {new_tpr:.3f}, New FPR: {new_fpr:.3f}")
@@ -140,11 +145,11 @@ def evaluate(msg: Message, context: Context):
         if len(indices) == 0:
             race_metrics[race] = {"TPR": None, "FPR": None}
             continue
-        race_metrics[race] = {"Race":race, "TPR": race_stat[race]["TPR"], "FPR": race_stat[race]["FPR"], "no_of_samples":len(indices)}
+        race_metrics[race] = {"Race":race, "TPR": race_stat[race]["TPR"], "FPR": race_stat[race]["FPR"], "no_of_samples":len(indices), "Threshold": race_stat[race]["Threshold"]}
         print(race_metrics)
     
     with open("metrics.csv", "w", newline="") as f:
-        fieldnames = ["Race", "TPR", "FPR", "no_of_samples"]
+        fieldnames = ["Race", "TPR", "FPR", "no_of_samples", "Threshold"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(race_metrics.values())
