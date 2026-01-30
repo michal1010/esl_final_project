@@ -3,24 +3,21 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, log_loss, roc_auc_score
-from sklearn.model_selection import train_test_split
-
 
 SEED = 42
+THRESHOLD = 0.5
 N_CLIENTS = 5
-TEST_SIZE = 0.2
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA_PATH = REPO_ROOT / "data" / "cox-violent-parsed_filt.csv"
-
-OUT_DIR = REPO_ROOT / "centralized_model" / "centralized_out_like_adithya_raw"
+DATA_PATH = REPO_ROOT / "data" / "centralized_dataset.csv"
+OUT_DIR = REPO_ROOT / "centralized_model" / "centralized_out"
 
 TARGET = "is_recid"
 UNIQUE_LABELS = [0, 1]
@@ -49,55 +46,41 @@ for col, categories in CATEGORICAL_FEATURES.items():
 def create_logreg_model() -> LogisticRegression:
     return LogisticRegression(
         solver="saga",
-        max_iter=1000,
+        max_iter=5000,
+        tol=1e-3,
         warm_start=True,
         fit_intercept=True,
+        random_state=SEED,
     )
 
 
-def compute_jail_time_days(df: pd.DataFrame) -> pd.Series:
-    """Compute jail_time (days) from c_jail_in/c_jail_out if jail_time is missing."""
-    if "c_jail_in" not in df.columns or "c_jail_out" not in df.columns:
-        return pd.Series([np.nan] * len(df))
-
-    jin = pd.to_datetime(df["c_jail_in"], errors="coerce", dayfirst=True, infer_datetime_format=True)
-    jout = pd.to_datetime(df["c_jail_out"], errors="coerce", dayfirst=True, infer_datetime_format=True)
-    return (jout - jin).dt.total_seconds() / 86400.0
-
-
-def preprocess_to_matrix(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, pd.DataFrame]:
-    """
-    Builds X,y exactly like FL:
-    - filters out invalid labels (TARGET != -1)
-    - uses NUMERIC_FEATURES + ['sex','race']
-    - one-hot encodes sex/race with fixed expected columns/order
-    Returns: X (np), y (np), df_used (for race labels etc.)
-    """
+def preprocess(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame]:
     df = df.copy()
 
     if TARGET not in df.columns:
-        raise ValueError(f"Missing target column '{TARGET}' in source dataset.")
-    for col in ["sex", "race"]:
-        if col not in df.columns:
-            raise ValueError(f"Missing required categorical column '{col}' in source dataset.")
-
-    if "jail_time" not in df.columns:
-        df["jail_time"] = compute_jail_time_days(df)
-
-    for col in NUMERIC_FEATURES:
-        if col not in df.columns:
-            raise ValueError(f"Missing numeric feature '{col}' in source dataset.")
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+        raise ValueError(f"Missing target '{TARGET}' in {DATA_PATH.name}. Found: {list(df.columns)}")
 
     df = df[df[TARGET] != -1].reset_index(drop=True)
+
+    required = NUMERIC_FEATURES + list(CATEGORICAL_FEATURES.keys()) + [TARGET]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(
+            f"{DATA_PATH.name} is missing required columns: {missing}\n"
+            f"Available columns: {list(df.columns)}"
+        )
 
     y = pd.to_numeric(df[TARGET], errors="coerce").fillna(0).astype(int).clip(0, 1).to_numpy()
 
     X = df[NUMERIC_FEATURES + list(CATEGORICAL_FEATURES.keys())].copy()
 
     for col in NUMERIC_FEATURES:
-        med = float(np.nanmedian(X[col].to_numpy())) if np.isfinite(np.nanmedian(X[col].to_numpy())) else 0.0
-        X[col] = X[col].fillna(med)
+        X[col] = pd.to_numeric(X[col], errors="coerce")
+        if X[col].isna().any():
+            med = float(np.nanmedian(X[col].to_numpy()))
+            if not np.isfinite(med):
+                med = 0.0
+            X[col] = X[col].fillna(med)
 
     X = pd.get_dummies(X, columns=CATEGORICAL_FEATURES.keys(), drop_first=False)
 
@@ -110,38 +93,41 @@ def preprocess_to_matrix(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, pd.D
     return X.to_numpy(dtype=float), y, df
 
 
-def calculate_metrics_csv(y_true: np.ndarray, race_dict: Dict[str, List[int]], y_proba: np.ndarray, out_path: Path) -> None:
-    """Same structure as Adithya's calcualte_metrics: TPR/FPR per race across thresholds."""
-    race_metrics = []
-    for threshold in np.arange(0.1, 1.0, 0.1):
-        y_pred = (y_proba[:, 1] >= threshold).astype(int)
+def threshold_metrics_by_race(y_true: np.ndarray, df_used: pd.DataFrame, y_proba: np.ndarray, out_path: Path) -> None:
+    race_dict: Dict[str, List[int]] = {r: [] for r in CATEGORICAL_FEATURES["race"]}
+    for i, rv in enumerate(df_used["race"].astype(str).tolist()):
+        rv = rv.strip()
+        if rv in race_dict:
+            race_dict[rv].append(i)
 
-        for race, indices in race_dict.items():
+    rows = []
+    for thr in np.arange(0.1, 1.0, 0.1):
+        y_pred = (y_proba[:, 1] >= thr).astype(int)
+
+        for race, idxs in race_dict.items():
             tp = fp = fn = tn = 0
-            for i in indices:
-                if y_true[i] == 1 and y_pred[i] == 1:
+            for j in idxs:
+                if y_true[j] == 1 and y_pred[j] == 1:
                     tp += 1
-                elif y_true[i] == 0 and y_pred[i] == 1:
+                elif y_true[j] == 0 and y_pred[j] == 1:
                     fp += 1
-                elif y_true[i] == 1 and y_pred[i] == 0:
+                elif y_true[j] == 1 and y_pred[j] == 0:
                     fn += 1
                 else:
                     tn += 1
 
-            tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+            tpr = tp / (tp + fn) if (tp + fn) else 0.0
+            fpr = fp / (fp + tn) if (fp + tn) else 0.0
 
-            race_metrics.append(
-                {"race": race, "num_examples": len(indices), "TPR": tpr, "FPR": fpr, "threshold": float(threshold)}
-            )
+            rows.append({"race": race, "num_examples": len(idxs), "TPR": tpr, "FPR": fpr, "threshold": float(thr)})
 
     with open(out_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=race_metrics[-1].keys())
+        writer = csv.DictWriter(f, fieldnames=["race", "num_examples", "TPR", "FPR", "threshold"])
         writer.writeheader()
-        writer.writerows(race_metrics)
+        writer.writerows(rows)
 
 
-def confusion_counts(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[int, int, int, int]:
+def confusion_counts(y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[int, int, int, int]:
     tp = int(((y_true == 1) & (y_pred == 1)).sum())
     fp = int(((y_true == 0) & (y_pred == 1)).sum())
     tn = int(((y_true == 0) & (y_pred == 0)).sum())
@@ -157,59 +143,49 @@ def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     if not DATA_PATH.exists():
-        raise FileNotFoundError(f"Could not find source dataset at: {DATA_PATH}")
+        raise FileNotFoundError(f"Missing dataset: {DATA_PATH}")
 
-    df = pd.read_csv(DATA_PATH)
+    df_raw = pd.read_csv(DATA_PATH)
 
-    X_all, y_all, df_used = preprocess_to_matrix(df)
+    df_raw = df_raw.sample(frac=1, random_state=SEED).reset_index(drop=True)
 
-    X_train_full, X_test, y_train_full, y_test, df_train, df_test = train_test_split(
-        X_all,
-        y_all,
-        df_used,
-        test_size=TEST_SIZE,
-        random_state=SEED,
-        stratify=y_all,
-    )
+    X_all, y_all, df_used = preprocess(df_raw)
 
-    rng = np.random.default_rng(SEED)
-    idx = np.arange(len(X_train_full))
-    rng.shuffle(idx)
-    client_splits = np.array_split(idx, N_CLIENTS)
+    indices = np.arange(len(y_all))
+    parts = np.array_split(indices, N_CLIENTS + 1)
 
-    X_train = X_train_full
-    y_train = y_train_full
+    test_idx = parts[0]
+    train_idx = np.concatenate(parts[1:])
+
+    X_train, y_train = X_all[train_idx], y_all[train_idx]
+    X_test, y_test = X_all[test_idx], y_all[test_idx]
+    df_test = df_used.iloc[test_idx].reset_index(drop=True)
 
     model = create_logreg_model()
     model.fit(X_train, y_train)
 
     joblib.dump(model, OUT_DIR / "logreg_model.pkl")
+    np.savez(OUT_DIR / "split_indices_federated_style.npz", train_idx=train_idx, test_idx=test_idx)
 
     y_proba = model.predict_proba(X_test)
-    loss = float(log_loss(y_test, y_proba, labels=UNIQUE_LABELS))
-    acc = float(model.score(X_test, y_test))
-
     probs1 = y_proba[:, 1]
-    y_pred_05 = (probs1 >= 0.5).astype(int)
+    y_pred = (probs1 >= THRESHOLD).astype(int)
 
     overall = {
-        "client_style_accuracy": acc,
-        "client_style_log_loss": loss,
-        "accuracy@0.5": float(accuracy_score(y_test, y_pred_05)),
-        "f1@0.5": float(f1_score(y_test, y_pred_05)),
+        "accuracy@0.5": float(accuracy_score(y_test, y_pred)),
+        "f1@0.5": float(f1_score(y_test, y_pred)),
         "roc_auc": float(roc_auc_score(y_test, probs1)) if len(np.unique(y_test)) > 1 else float("nan"),
-        "threshold": 0.5,
+        "log_loss": float(log_loss(y_test, y_proba, labels=UNIQUE_LABELS)),
+        "threshold": THRESHOLD,
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),
+        "base_rate_test": float(y_test.mean()),
+        "selection_rate@0.5": float(y_pred.mean()),
+        "seed": SEED,
+        "split_style": f"shuffle(seed={SEED}) + array_split into {N_CLIENTS+1} parts (part0 test, rest train)",
     }
 
-    df_test = df_test.reset_index(drop=True)
-    race_dict: Dict[str, List[int]] = {race: [] for race in CATEGORICAL_FEATURES["race"]}
-    for i, race_val in enumerate(df_test["race"].astype(str).tolist()):
-        if race_val in race_dict:
-            race_dict[race_val].append(i)
-
-    calculate_metrics_csv(y_test, race_dict, y_proba, OUT_DIR / "metrics.csv")
+    threshold_metrics_by_race(y_test, df_test, y_proba, OUT_DIR / "metrics.csv")
 
     A = (df_test["race"].astype(str).str.strip() == "African-American").astype(int).to_numpy()
 
@@ -217,7 +193,7 @@ def main() -> None:
     for aval, gname in [(0, "NonAfricanAmerican"), (1, "AfricanAmerican")]:
         m = (A == aval)
         yt = y_test[m]
-        yp = y_pred_05[m]
+        yp = y_pred[m]
         n = int(m.sum())
         tp, fp, tn, fn = confusion_counts(yt, yp)
         rows.append(
@@ -246,33 +222,41 @@ def main() -> None:
             "demographic_parity_diff_A1_minus_A0": float(g1["SelectionRate"] - g0["SelectionRate"]),
             "equal_opportunity_diff_TPR_A1_minus_A0": float(g1["TPR"] - g0["TPR"]),
             "fpr_diff_A1_minus_A0": float(g1["FPR"] - g0["FPR"]),
-            "equalized_odds_diff_max_abs_tpr_fpr": float(max(abs(g1["TPR"] - g0["TPR"]), abs(g1["FPR"] - g0["FPR"]))),
+            "equalized_odds_diff_max_abs_tpr_fpr": float(
+                max(abs(g1["TPR"] - g0["TPR"]), abs(g1["FPR"] - g0["FPR"]))
+            ),
         }
     else:
         fairness = {}
 
     metrics_out = {
-        "source_data": str(DATA_PATH),
-        "split_recreation": {
-            "seed": SEED,
-            "test_size": TEST_SIZE,
-            "n_clients": N_CLIENTS,
-            "note": "This recreates the random 5-client split + test set from the raw source dataset. "
-                    "If your existing federated CSVs were created with different stratification/seed, results will differ slightly.",
+        "data": str(DATA_PATH),
+        "model": {
+            "type": "LogisticRegression",
+            "solver": "saga",
+            "max_iter": 5000,
+            "tol": 1e-3,
+            "warm_start": True,
+            "fit_intercept": True,
+            "random_state": SEED,
         },
         "features": {"numeric": NUMERIC_FEATURES, "categorical": CATEGORICAL_FEATURES, "dummy_cols": EXPECTED_DUMMY_COLS},
-        "model": {"type": "LogisticRegression", "solver": "saga", "max_iter": 1000, "warm_start": True, "fit_intercept": True},
         "overall": overall,
         "fairness_binary_AA_vs_nonAA@0.5": fairness,
-        "client_partition_sizes": [int(len(s)) for s in client_splits],
-        "outputs": ["metrics.csv", "group_metrics_binary.csv", "metrics.json", "logreg_model.pkl"],
+        "artifacts": [
+            "logreg_model.pkl",
+            "split_indices_federated_style.npz",
+            "metrics.csv",
+            "group_metrics_binary.csv",
+            "metrics.json",
+        ],
     }
     with open(OUT_DIR / "metrics.json", "w") as f:
         json.dump(metrics_out, f, indent=2)
 
     print("Saved outputs to:", OUT_DIR)
     print("Overall:", overall)
-    print("Fairness (AA vs non-AA) @0.5:", fairness)
+    print("Fairness:", fairness)
 
 
 if __name__ == "__main__":
