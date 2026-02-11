@@ -1,8 +1,5 @@
-import warnings
 from flwr.app import Context, Message, MetricRecord, RecordDict
-from fairlearn.reductions import ExponentiatedGradient, DemographicParity
 from fairlearn.postprocessing import ThresholdOptimizer
-from task import create_logreg_model, set_initial_params, get_model_params
 from flwr.clientapp import ClientApp
 from sklearn.metrics import log_loss
 from flwr.common import ArrayRecord
