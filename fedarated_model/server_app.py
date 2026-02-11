@@ -2,7 +2,8 @@ import joblib
 from flwr.app import ArrayRecord, Context
 from flwr.serverapp import Grid, ServerApp
 from flwr.serverapp.strategy import FedAvg
-from sklearnexample.task import (
+
+from task import (
     create_logreg_model,
     set_initial_params,
     get_model_params,
@@ -15,14 +16,14 @@ app = ServerApp()
 
 @app.main()
 def main(grid: Grid, context: Context) -> None:
- 
+
     num_rounds: int = context.run_config["num-server-rounds"]
 
     # Initialize LogisticRegression model parameters
     model = create_logreg_model()
     n_features = len(NUMERIC_FEATURES + EXPECTED_DUMMY_COLS)
     set_initial_params(model, n_features=n_features)
-    
+
     arrays = ArrayRecord(get_model_params(model))
 
     # FedAvg strategy

@@ -1,0 +1,3 @@
+race,num_examples,TPR,FPR,threshold
+African-American,1537,0.555952380952381,0.2611190817790531,fairlearn-mixed
+NonAfrican-American,1300,0.5716845878136201,0.30727762803234504,fairlearn-mixed

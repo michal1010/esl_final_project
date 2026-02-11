@@ -1,0 +1,4 @@
+Method,Accuracy,F1,DP_Max_Diff,EqOdds_Max
+baseline,0.5259,0.0894,0.1000,0.1667
+independence,0.6405,0.6068,0.2000,0.5000
+separation,0.6264,0.5443,0.2163,0.3333

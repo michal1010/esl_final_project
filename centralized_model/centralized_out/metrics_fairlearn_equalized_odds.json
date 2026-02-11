@@ -1,0 +1,7 @@
+{
+  "baseline_accuracy": 0.5259076489249207,
+  "separation_accuracy": 0.6200211491011632,
+  "baseline_f1": 0.08937034529451592,
+  "separation_f1": 0.5377358490566038,
+  "constraint": "equalized_odds"
+}

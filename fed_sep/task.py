@@ -25,15 +25,16 @@ UNIQUE_LABELS = [0, 1]
 FEATURES = [
     "sex", "age", "race",
     "priors_count", "juv_fel_count",
-    "juv_misd_count", "juv_other_count","decile_score"
+    "juv_misd_count", "juv_other_count","decile_score",
+    "jail_time"
     ]
-NUMERIC_FEATURES = ["age", "priors_count", "juv_fel_count", "juv_misd_count", "juv_other_count","decile_score"]
+NUMERIC_FEATURES = ["age", "priors_count", "juv_fel_count", "juv_misd_count", "juv_other_count","decile_score", "jail_time"]
 CATEGORICAL_FEATURES = {
     "sex": ["Male", "Female"],
     "race": ["Other", "Caucasian", "African-American", "Hispanic", "Asian", "Native American"],
 }
 
-# This reweights the loss functions to make the losses scaled uniformly across races for a specific label 
+# This reweights the loss functions to make the losses scaled uniformly across races for a specific label
 def compute_independence_weights(y, sensitive_attr):
     """
     y: labels (n,)
@@ -92,7 +93,7 @@ def set_model_params(model, params: List[np.ndarray]):
 def load_data_by_cid(cid: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,np.ndarray]:
     df = pd.read_csv(os.path.join(DATA_PATH, CLIENTS[cid]))
     df = df[df[TARGET] != -1]  # remove invalid labels
-    
+
     df2 = pd.read_csv(os.path.join(DATA_PATH,TEST))
     df2=df2[df2[TARGET]!= -1]
     # Split features and target
@@ -123,42 +124,35 @@ def load_data_by_cid(cid: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.n
     return X_train.values, y_train.values, X_test.values, y_test.values,sample_weights
 
 
-def calculate_metrics(y_test, race_dict, y_pred):
-
+def calculate_metrics(y_test, race_dict, y_proba):
     race_metrics = []
 
-    for race, indices in race_dict.items():
-        if len(indices) == 0:
+    for threshold in np.arange(0.1, 1.0, 0.1):
+        y_pred = (y_proba >= threshold).astype(int)
+
+        for race, indices in race_dict.items():
+            tp = fp = fn = tn = 0
+
+            for i in indices:
+                if y_test[i] == 1 and y_pred[i] == 1:
+                    tp += 1
+                elif y_test[i] == 0 and y_pred[i] == 1:
+                    fp += 1
+                elif y_test[i] == 1 and y_pred[i] == 0:
+                    fn += 1
+                else:
+                    tn += 1
+
+            tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+
             race_metrics.append({
                 'race': race,
-                "num_examples": 0,
-                "TPR": None,
-                "FPR": None
+                "num_examples": len(indices),
+                "TPR": tpr,
+                "FPR": fpr,
+                'threshold': threshold
             })
-            continue
-
-        tp = fp = fn = tn = 0
-
-        for i in indices:
-            if y_test[i] == 1 and y_pred[i] == 1:
-                tp += 1
-            elif y_test[i] == 0 and y_pred[i] == 1:
-                fp += 1
-            elif y_test[i] == 1 and y_pred[i] == 0:
-                fn += 1
-            else:
-                tn += 1
-
-        tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
-
-        race_metrics.append({
-            'race': race,
-            "num_examples": len(indices),
-            "TPR": tpr,
-            "FPR": fpr
-        })
-
 
     with open(f'metrics.csv', 'w') as f:
         writer = csv.DictWriter(f, fieldnames=race_metrics[-1].keys())
