@@ -158,3 +158,78 @@ def calculate_metrics(y_test, race_dict, y_proba):
         writer = csv.DictWriter(f, fieldnames=race_metrics[-1].keys())
         writer.writeheader()
         writer.writerows(race_metrics)
+
+def calculate_roc_metrics(y_test, race_dict, y_proba):
+    race_metrics = []
+
+    for threshold in np.arange(0.01, 1.0, 0.01):
+        y_pred = (y_proba >= threshold).astype(int)
+
+        for race, indices in race_dict.items():
+            tp = fp = fn = tn = 0
+
+            for i in indices:
+                if y_test[i] == 1 and y_pred[i] == 1:
+                    tp += 1
+                elif y_test[i] == 0 and y_pred[i] == 1:
+                    fp += 1
+                elif y_test[i] == 1 and y_pred[i] == 0:
+                    fn += 1
+                else:
+                    tn += 1
+
+            tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+
+            race_metrics.append({
+                'race': race,
+                "num_examples": len(indices),
+                "TPR": tpr,
+                "FPR": fpr,
+                'threshold': threshold
+            })
+
+    with open(f'metrics_roc.csv', 'w') as f:
+        writer = csv.DictWriter(f, fieldnames=race_metrics[-1].keys())
+        writer.writeheader()
+        writer.writerows(race_metrics)
+
+def calculate_PPV_NPV(y_test, race_dict, y_pred):
+    race_metrics = []
+
+    for race, indices in race_dict.items():
+        if len(indices) == 0:
+            race_metrics.append({
+                'race': race,
+                "num_examples": 0,
+                "TPR": None,
+                "FPR": None
+            })
+            continue
+
+        tp = fp = fn = tn = 0
+
+        for i in indices:
+            if y_test[i] == 1 and y_pred[i] == 1:
+                tp += 1
+            elif y_test[i] == 0 and y_pred[i] == 1:
+                fp += 1
+            elif y_test[i] == 1 and y_pred[i] == 0:
+                fn += 1
+            else:
+                tn += 1
+
+        ppv = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        npv = tn / (fn + tn) if (fn + tn) > 0 else 0.0
+
+        race_metrics.append({
+            'race': race,
+            "num_examples": len(indices),
+            "PPV": ppv,
+            "NPV": npv
+        })
+
+        with open(f'metrics_ppv.csv', 'w') as f:
+            writer = csv.DictWriter(f, fieldnames=race_metrics[-1].keys())
+            writer.writeheader()
+            writer.writerows(race_metrics)
