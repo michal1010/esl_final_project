@@ -1,8 +1,9 @@
 {
-  "data": "/Users/ivanvirovski/Documents/uni/esl_final/esl_final_project/data/centralized_dataset.csv",
+  "data": "/home/ekspc/Desktop/uni/q2/esl/coding/esl_final_project/data/centralized_dataset.csv",
   "model": {
     "type": "LogisticRegression",
     "solver": "saga",
+    "max_iter": 1000,
     "max_iter": 1000,
     "warm_start": true,
     "fit_intercept": true,
@@ -44,23 +45,23 @@
     ]
   },
   "overall": {
-    "accuracy@0.5": 0.5269651039830807,
-    "f1@0.5": 0.09324324324324325,
+    "accuracy@0.5": 0.5072259428974268,
+    "f1@0.5": 0.0,
     "roc_auc": 0.6893909794693303,
     "log_loss": 0.6831621788521054,
-    "threshold": 0.5,
+    "threshold": 0.6,
     "n_train": 14181,
     "n_test": 2837,
     "base_rate_test": 0.49277405710257316,
-    "selection_rate@0.5": 0.028903771589707437,
+    "selection_rate@0.5": 0.0,
     "seed": 42,
     "split_style": "shuffle(seed=42) + array_split into 6 parts (part0 test, rest train)"
   },
   "fairness_binary_AA_vs_nonAA@0.5": {
-    "demographic_parity_diff_A1_minus_A0": 0.034892648015614834,
-    "equal_opportunity_diff_TPR_A1_minus_A0": 0.049334357398873534,
-    "fpr_diff_A1_minus_A0": 0.013086504735350191,
-    "equalized_odds_diff_max_abs_tpr_fpr": 0.049334357398873534,
+    "demographic_parity_diff_A1_minus_A0": 0.0,
+    "equal_opportunity_diff_TPR_A1_minus_A0": 0.0,
+    "fpr_diff_A1_minus_A0": 0.0,
+    "equalized_odds_diff_max_abs_tpr_fpr": 0.0,
     "sensitive_definition": "A=1 if race == 'African-American'"
   },
   "outputs": [
@@ -68,8 +69,13 @@
     "split_indices_federated_style.npz",
     "metrics.csv",
     "roc_points.csv",
+    "roc_points.csv",
     "group_metrics_binary.csv",
     "metrics.json"
+  ],
+  "notes": [
+    "Centralized uses the federated feature set and preprocessing (no feature selection).",
+    "No numeric imputation is performed (clean upstream dataset required)."
   ],
   "notes": [
     "Centralized uses the federated feature set and preprocessing (no feature selection).",

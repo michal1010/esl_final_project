@@ -1,0 +1,7 @@
+{
+  "baseline_accuracy": 0.5259076489249207,
+  "fair_accuracy": 0.639760310186817,
+  "baseline_f1": 0.08937034529451592,
+  "fair_f1": 0.6060138781804163,
+  "constraint": "demographic_parity"
+}

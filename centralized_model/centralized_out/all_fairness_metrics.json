@@ -1,0 +1,51 @@
+{
+  "baseline": {
+    "accuracy": 0.5259076489249207,
+    "f1": 0.08937034529451592,
+    "auc": 0.6892572631804992,
+    "fairness": {
+      "demographic_parity_diff_max": 0.1,
+      "equal_opportunity_diff_max": 0.16666666666666666,
+      "equalized_odds_tpr_diff_max": 0.16666666666666666,
+      "equalized_odds_fpr_diff_max": 0.015781922525107604,
+      "predictive_parity_diff_max": 0.33333333333333337,
+      "equalized_odds_max": 0.16666666666666666,
+      "demographic_parity_diff_AA_vs_rest": 0.020736803859770676,
+      "equal_opportunity_diff_AA_vs_rest": 0.0281554143256271,
+      "fpr_diff_AA_vs_rest": 0.013878961529804976,
+      "precision_diff_AA_vs_rest": 0.007246376811594124
+    }
+  },
+  "independence": {
+    "accuracy": 0.6404652802255905,
+    "f1": 0.6067848882035466,
+    "fairness": {
+      "demographic_parity_diff_max": 0.19999999999999996,
+      "equal_opportunity_diff_max": 0.45390070921985815,
+      "equalized_odds_tpr_diff_max": 0.45390070921985815,
+      "equalized_odds_fpr_diff_max": 0.5,
+      "predictive_parity_diff_max": 0.6666666666666667,
+      "equalized_odds_max": 0.5,
+      "demographic_parity_diff_AA_vs_rest": -0.03141654125624005,
+      "equal_opportunity_diff_AA_vs_rest": -0.1470831853050697,
+      "fpr_diff_AA_vs_rest": -0.020544299532857302,
+      "precision_diff_AA_vs_rest": 0.11434750393627857
+    }
+  },
+  "separation": {
+    "accuracy": 0.6263658794501233,
+    "f1": 0.5442820292347378,
+    "fairness": {
+      "demographic_parity_diff_max": 0.21631205673758863,
+      "equal_opportunity_diff_max": 0.3333333333333333,
+      "equalized_odds_tpr_diff_max": 0.3333333333333333,
+      "equalized_odds_fpr_diff_max": 0.14855072463768115,
+      "predictive_parity_diff_max": 0.6000000000000001,
+      "equalized_odds_max": 0.3333333333333333,
+      "demographic_parity_diff_AA_vs_rest": -0.00733266479733069,
+      "equal_opportunity_diff_AA_vs_rest": -0.024364794273608825,
+      "fpr_diff_AA_vs_rest": -0.032740749660888024,
+      "precision_diff_AA_vs_rest": 0.17010197720873654
+    }
+  }
+}

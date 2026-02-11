@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, log_loss, roc_auc_score, roc_curve
 
 SEED = 42
-THRESHOLD = 0.5
+THRESHOLD = 0.6
 N_CLIENTS = 5
 
 SOLVER = "saga"
